@@ -129,3 +129,6 @@ SIMPLE_JWT = {
 }
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Длина кода подтверждения при регистрации
+CONFIRMATION_CODE_LENGTH = 6

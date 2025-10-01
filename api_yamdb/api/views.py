@@ -2,15 +2,13 @@ from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.filters import SearchFilter
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from reviews.models import Category, Genre, Title
-
-from .filters import TitleFilter, UserFilter
-from .permissions import IsAdmin, IsAuthorOrReadOnly
+from .filters import TitleFilter
+from .permissions import IsAdmin
 from .serializers import (
     CategorySerializer,
     GenreSerializer,
@@ -18,7 +16,7 @@ from .serializers import (
     TitleReadSerializer,
     TitleWriteSerializer,
     TokenObtainSerializer,
-    UserSerializer, UserCreateSerializer, UserUpdateSerializer
+    UserSerializer
 )
 
 
@@ -27,7 +25,6 @@ User = get_user_model()
 
 class AuthViewSet(viewsets.ViewSet):
     """Вьюсет для аутентификации."""
-
     permission_classes = [AllowAny]
 
     @action(detail=False, methods=['post'], url_path='signup')
@@ -44,9 +41,11 @@ class AuthViewSet(viewsets.ViewSet):
     def token(self, request):
         serializer = TokenObtainSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response({
-            'token': serializer.validated_data['access_token'],
-        })
+        return Response(
+            {
+                'token': serializer.validated_data['access_token']
+            }
+        )
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -103,34 +102,32 @@ class TitleViewSet(viewsets.ModelViewSet):
 
 class UserViewSet(viewsets.ModelViewSet):
     """Вьюсет для работы с пользователями."""
-
     queryset = User.objects.all()
+    serializer_class = UserSerializer
     permission_classes = [IsAdmin]
-    filter_backends = [DjangoFilterBackend]
-    filterset_class = UserFilter
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('username',)
     lookup_field = 'username'
-
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return UserCreateSerializer
-        elif self.action in ['update', 'partial_update']:
-            return UserUpdateSerializer
-        return UserSerializer
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     @action(
-        detail=False, methods=['get', 'patch'],
-        permission_classes=[IsAuthorOrReadOnly]
+        detail=False,
+        methods=['get', 'patch'],
+        permission_classes=[IsAuthenticated]
     )
     def me(self, request):
         if request.method == 'GET':
-            serializer = self.get_serializer(request.user)
-            return Response(serializer.data)
+            return Response(self.get_serializer(request.user).data)
 
         serializer = self.get_serializer(
-            request.user,
-            data=request.data,
-            partial=True
+            request.user, data=request.data, partial=True
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
+
+        allowed_fields = {'first_name', 'last_name', 'bio'}
+        for field in allowed_fields:
+            if field in serializer.validated_data:
+                setattr(request.user, field, serializer.validated_data[field])
+
+        request.user.save()
+        return Response(self.get_serializer(request.user).data)
