@@ -9,7 +9,7 @@ from rest_framework.response import Response
 
 from reviews.models import Category, Genre, Title
 
-from .filters import TitleFilter
+from .filters import TitleFilter, UserFilter
 from .permissions import IsAdmin, IsAuthorOrReadOnly
 from .serializers import (
     CategorySerializer,
@@ -26,33 +26,26 @@ User = get_user_model()
 
 
 class AuthViewSet(viewsets.ViewSet):
+    """Вьюсет для аутентификации."""
+
     permission_classes = [AllowAny]
 
     @action(detail=False, methods=['post'], url_path='signup')
     def signup(self, request):
         serializer = SignUpSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
-            return Response(
-                {'email': user.email, 'username': user.username},
-                status=status.HTTP_200_OK
-            )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(
+            {'email': user.email, 'username': user.username},
+            status=status.HTTP_200_OK
+        )
 
     @action(detail=False, methods=['post'], url_path='token')
     def token(self, request):
         serializer = TokenObtainSerializer(data=request.data)
-        if not serializer.is_valid():
-            error_code = serializer.errors.get('code')
-            if error_code == 'not_found':
-                return Response(
-                    serializer.errors,
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        access_token = serializer.validated_data['access_token']
+        serializer.is_valid(raise_exception=True)
         return Response({
-            'token': access_token,
+            'token': serializer.validated_data['access_token'],
         })
 
 
@@ -109,11 +102,12 @@ class TitleViewSet(viewsets.ModelViewSet):
 
 
 class UserViewSet(viewsets.ModelViewSet):
+    """Вьюсет для работы с пользователями."""
+
     queryset = User.objects.all()
-    serializer_class = UserSerializer
     permission_classes = [IsAdmin]
-    filter_backends = [SearchFilter]
-    search_fields = ['username']
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = UserFilter
     lookup_field = 'username'
 
     def get_serializer_class(self):
@@ -123,18 +117,20 @@ class UserViewSet(viewsets.ModelViewSet):
             return UserUpdateSerializer
         return UserSerializer
 
-    @action(detail=False, methods=['get', 'patch'], permission_classes=[IsAuthorOrReadOnly])
+    @action(
+        detail=False, methods=['get', 'patch'],
+        permission_classes=[IsAuthorOrReadOnly]
+    )
     def me(self, request):
         if request.method == 'GET':
-            serializer = UserSerializer(request.user)
+            serializer = self.get_serializer(request.user)
             return Response(serializer.data)
-        elif request.method == 'PATCH':
-            serializer = UserUpdateSerializer(
-                request.user,
-                data=request.data,
-                partial=True
-            )
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = self.get_serializer(
+            request.user,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)

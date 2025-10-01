@@ -6,6 +6,7 @@ from django.core.mail import send_mail
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework.exceptions import NotFound
 
 from reviews.models import Category, ConfirmationCode, Genre, Title, User, UserNameValidator
 
@@ -14,7 +15,7 @@ class BaseUserSerializer(serializers.ModelSerializer):
     def validate_username(self, value):
         if value and value.lower() == 'me':
             raise serializers.ValidationError(
-                "Использовать имя 'me' в качестве username запрещено")
+                "Имя 'me' запрещено в качестве username")
         return value
 
 
@@ -40,13 +41,23 @@ class SignUpSerializer(BaseUserSerializer):
             raise serializers.ValidationError(
                 "Поля username и email обязательны для заполнения")
 
-        if User.objects.filter(username=username).exists() or username.lower() == 'me':
+        user_exists = User.objects.filter(email=email).exists()
+        username_exists = User.objects.filter(username=username).exists()
+
+        if username_exists and username.lower() != 'me':
+            existing_user = User.objects.get(username=username)
+            if existing_user.email != email:
+                raise serializers.ValidationError(
+                    {"username": "Введенный username занят"})
+        elif username.lower() == 'me':
             raise serializers.ValidationError(
                 {"username": "Введенный username занят"})
 
-        if User.objects.filter(email=email).exists():
-            raise serializers.ValidationError(
-                {"email": "Введенный email занят"})
+        if user_exists:
+            existing_user = User.objects.get(email=email)
+            if existing_user.username != username:
+                raise serializers.ValidationError(
+                    {"email": "Введенный email занят"})
 
         return data
 
@@ -116,10 +127,11 @@ class TokenObtainSerializer(serializers.Serializer):
 
         try:
             user = User.objects.get(username=username)
-            code_obj = ConfirmationCode.objects.get(email=user.email)
         except User.DoesNotExist:
-            raise serializers.ValidationError(
-                {"detail": "Пользователь не найден"}, code='not_found')
+            raise NotFound({"detail": "Пользователь не найден"})
+
+        try:
+            code_obj = ConfirmationCode.objects.get(email=user.email)
         except ConfirmationCode.DoesNotExist:
             raise serializers.ValidationError("Код подтверждения не найден")
 
@@ -152,6 +164,24 @@ class UserCreateSerializer(BaseUserSerializer):
             'username', 'email', 'first_name',
             'last_name', 'bio', 'role'
         )
+
+    def create(self, validated_data):
+        validated_data['is_active'] = False
+        return super().create(validated_data)
+
+    def validate(self, data):
+        username = data.get('username')
+        email = data.get('email')
+
+        if User.objects.filter(username=username).exists():
+            raise serializers.ValidationError(
+                {"username": "Пользователь с таким username уже существует"})
+
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError(
+                {"email": "Пользователь с таким email уже существует"})
+
+        return data
 
 
 class UserUpdateSerializer(BaseUserSerializer):
