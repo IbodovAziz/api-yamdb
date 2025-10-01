@@ -18,7 +18,7 @@ from .serializers import (
     TitleReadSerializer,
     TitleWriteSerializer,
     TokenObtainSerializer,
-    UserSerializer, UserCreateSerializer, UserUpdateSerializer, MeUpdateSerializer
+    UserSerializer, UserCreateSerializer, UserUpdateSerializer
 )
 
 
@@ -129,7 +129,7 @@ class UserViewSet(viewsets.ModelViewSet):
             serializer = UserSerializer(request.user)
             return Response(serializer.data)
         elif request.method == 'PATCH':
-            serializer = MeUpdateSerializer(
+            serializer = UserUpdateSerializer(
                 request.user,
                 data=request.data,
                 partial=True

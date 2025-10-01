@@ -10,7 +10,15 @@ from rest_framework_simplejwt.tokens import AccessToken
 from reviews.models import Category, ConfirmationCode, Genre, Title, User, UserNameValidator
 
 
-class SignUpSerializer(serializers.ModelSerializer):
+class BaseUserSerializer(serializers.ModelSerializer):
+    def validate_username(self, value):
+        if value and value.lower() == 'me':
+            raise serializers.ValidationError(
+                "Использовать имя 'me' в качестве username запрещено")
+        return value
+
+
+class SignUpSerializer(BaseUserSerializer):
     username = serializers.CharField(
         max_length=150,
         validators=[UserNameValidator]
@@ -19,33 +27,34 @@ class SignUpSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('email', 'username')
-        extra_kwargs = {'username': {'required': True},
-                        'email': {'required': True}}
+        extra_kwargs = {
+            'username': {'required': True},
+            'email': {'required': True}
+        }
 
-    def validate_username(self, value):
-        if not value:
+    def validate(self, data):
+        username = data.get('username')
+        email = data.get('email')
+
+        if not username or not email:
             raise serializers.ValidationError(
                 "Поля username и email обязательны для заполнения")
 
-        if (
-                User.objects.filter(username=value).exists()
-                or value.lower() == 'me'):
-            raise serializers.ValidationError("Введенный username занят")
-
-        return value
-
-    def validate_email(self, value):
-        if not value:
+        if User.objects.filter(username=username).exists() or username.lower() == 'me':
             raise serializers.ValidationError(
-                "Поле email обязательны для заполнения")
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Введенный email занят")
-        return value
+                {"username": "Введенный username занят"})
+
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError(
+                {"email": "Введенный email занят"})
+
+        return data
 
     def create(self, validated_data):
         code = ''.join(random.choices(string.digits, k=6))
-
         email = validated_data['email']
+        username = validated_data['username']
+
         ConfirmationCode.objects.update_or_create(
             email=email,
             defaults={'code': code}
@@ -54,21 +63,21 @@ class SignUpSerializer(serializers.ModelSerializer):
         user, created = User.objects.get_or_create(
             email=email,
             defaults={
-                'username': validated_data['username'],
+                'username': username,
                 'is_active': False
             }
         )
 
         if not created:
-            user.username = validated_data['username']
+            user.username = username
             user.is_active = False
             user.save()
 
-        self.send_confirmation_email(email, code)
-
+        self._send_confirmation_email(email, code)
         return user
 
-    def send_confirmation_email(self, email, code):
+    def _send_confirmation_email(self, email, code):
+        """Отправка email с кодом подтверждения"""
         subject = 'Код подтверждения для регистрации'
         message = f'''
         Здравствуйте!
@@ -85,23 +94,16 @@ class SignUpSerializer(serializers.ModelSerializer):
         Команда проекта
         '''
 
-        from_email = settings.DEFAULT_FROM_EMAIL
-        recipient_list = [email]
-
         try:
             send_mail(
                 subject=subject,
                 message=message,
-                from_email=from_email,
-                recipient_list=recipient_list,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
                 fail_silently=False,
             )
         except Exception as e:
-            # В случае ошибки отправки email, все равно продолжаем
-            # Для отладки выводим ошибку
             print(f"Ошибка отправки email: {e}")
-            # В продакшене можно залогировать ошибку
-            # logger.error(f"Ошибка отправки email для {email}: {e}")
 
 
 class TokenObtainSerializer(serializers.Serializer):
@@ -109,37 +111,32 @@ class TokenObtainSerializer(serializers.Serializer):
     confirmation_code = serializers.CharField()
 
     def validate(self, data):
-        username = data.get('username')
-        confirmation_code = data.get('confirmation_code')
+        username = data['username']
+        confirmation_code = data['confirmation_code']
 
         try:
             user = User.objects.get(username=username)
+            code_obj = ConfirmationCode.objects.get(email=user.email)
         except User.DoesNotExist:
             raise serializers.ValidationError(
-                {"detail": "Пользователь не найден"},
-                code='not_found'
-            )
-
-        try:
-            code_obj = ConfirmationCode.objects.get(email=user.email)
-            if not code_obj.is_valid():
-                raise serializers.ValidationError("Код подтверждения истек")
-            if code_obj.code != confirmation_code:
-                raise serializers.ValidationError("Неверный код подтверждения")
+                {"detail": "Пользователь не найден"}, code='not_found')
         except ConfirmationCode.DoesNotExist:
             raise serializers.ValidationError("Код подтверждения не найден")
+
+        if not code_obj.is_valid():
+            raise serializers.ValidationError("Код подтверждения истек")
+        if code_obj.code != confirmation_code:
+            raise serializers.ValidationError("Неверный код подтверждения")
 
         user.is_active = True
         user.save()
 
-        access_token = AccessToken.for_user(user)
-
-        data['access_token'] = str(access_token)
+        data['access_token'] = str(AccessToken.for_user(user))
         data['user'] = user
         return data
 
 
-class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(BaseUserSerializer):
     class Meta:
         model = User
         fields = (
@@ -148,7 +145,7 @@ class UserSerializer(serializers.ModelSerializer):
         )
 
 
-class UserCreateSerializer(serializers.ModelSerializer):
+class UserCreateSerializer(BaseUserSerializer):
     class Meta:
         model = User
         fields = (
@@ -156,14 +153,8 @@ class UserCreateSerializer(serializers.ModelSerializer):
             'last_name', 'bio', 'role'
         )
 
-    def validate_username(self, value):
-        if value.lower() == 'me':
-            raise serializers.ValidationError(
-                "Использовать имя 'me' в качестве username запрещено")
-        return value
 
-
-class UserUpdateSerializer(serializers.ModelSerializer):
+class UserUpdateSerializer(BaseUserSerializer):
     class Meta:
         model = User
         fields = (
@@ -174,50 +165,6 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             'username': {'required': False},
             'email': {'required': False},
         }
-
-    def validate_username(self, value):
-        if value and value.lower() == 'me':
-            raise serializers.ValidationError(
-                "Использовать имя 'me' в качестве username запрещено")
-        return value
-
-
-class UserUpdateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = (
-            'username', 'email', 'first_name',
-            'last_name', 'bio', 'role'
-        )
-        extra_kwargs = {
-            'username': {'required': False},
-            'email': {'required': False},
-        }
-
-    def validate_username(self, value):
-        if value and value.lower() == 'me':
-            raise serializers.ValidationError(
-                "Использовать имя 'me' в качестве username запрещено")
-        return value
-
-
-class MeUpdateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = (
-            'username', 'email', 'first_name',
-            'last_name', 'bio'
-        )
-        extra_kwargs = {
-            'username': {'required': False},
-            'email': {'required': False},
-        }
-
-    def validate_username(self, value):
-        if value and value.lower() == 'me':
-            raise serializers.ValidationError(
-                "Использовать имя 'me' в качестве username запрещено")
-        return value
 
 
 class CategorySerializer(serializers.ModelSerializer):
