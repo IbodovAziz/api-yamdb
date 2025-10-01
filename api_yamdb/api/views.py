@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from reviews.models import Category, Genre, Title
 
 from .filters import TitleFilter
-from .permissions import IsAdmin, IsOwnerOrReadOnly
+from .permissions import IsAdmin, IsAuthorOrReadOnly
 from .serializers import (
     CategorySerializer,
     GenreSerializer,
@@ -123,7 +123,7 @@ class UserViewSet(viewsets.ModelViewSet):
             return UserUpdateSerializer
         return UserSerializer
 
-    @action(detail=False, methods=['get', 'patch'], permission_classes=[IsOwnerOrReadOnly])
+    @action(detail=False, methods=['get', 'patch'], permission_classes=[IsAuthorOrReadOnly])
     def me(self, request):
         if request.method == 'GET':
             serializer = UserSerializer(request.user)
