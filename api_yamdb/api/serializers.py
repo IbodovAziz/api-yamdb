@@ -45,10 +45,11 @@ class TitleWriteSerializer(serializers.ModelSerializer):
         fields = ('name', 'year', 'description', 'genre', 'category')
 
     def validate_year(self, value):
+        if value < 1:
+            raise serializers.ValidationError('Год не может быть меньше 1.')
         if value > timezone.now().year:
             raise serializers.ValidationError(
-                'Год выпуска не должен превышать текущий'
-            )
+                'Год выпуска не должен превышать текущий.')
         return value
 
     def to_representation(self, instance):
