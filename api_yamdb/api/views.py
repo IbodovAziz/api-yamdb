@@ -25,7 +25,7 @@ class CategoryGenreViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet
 ):
-    """Базовый вьюсет для моделей с полями name и slug."""
+    """Вьюсет для моделей с полями name и slug."""
 
     pagination_class = StandardResultsSetPagination
     filter_backends = (filters.SearchFilter,)

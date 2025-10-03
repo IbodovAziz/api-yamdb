@@ -4,6 +4,10 @@ from rest_framework import serializers
 from reviews.models import Category, Genre, Title
 
 
+MIN_YEAR = -3000
+MAX_YEAR = timezone.now().year
+
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
@@ -45,11 +49,14 @@ class TitleWriteSerializer(serializers.ModelSerializer):
         fields = ('name', 'year', 'description', 'genre', 'category')
 
     def validate_year(self, value):
-        if value < 1:
-            raise serializers.ValidationError('Год не может быть меньше 1.')
-        if value > timezone.now().year:
+        if value < MIN_YEAR:
             raise serializers.ValidationError(
-                'Год выпуска не должен превышать текущий.')
+                f'Год не может быть меньше {MIN_YEAR} до н.э.'
+            )
+        if value > MAX_YEAR:
+            raise serializers.ValidationError(
+                f'Год выпуска не должен превышать {MAX_YEAR}.'
+            )
         return value
 
     def to_representation(self, instance):
