@@ -15,7 +15,9 @@ from reviews.models import (
     Genre,
     Title,
     User,
-    UserNameValidator
+    UserNameValidator,
+    Review,
+    Comment
 )
 
 
@@ -214,3 +216,40 @@ class TitleWriteSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         return TitleReadSerializer(instance).data
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    """Сериализатор отзывов."""
+    author = serializers.SlugRelatedField(
+        slug_field='username',
+        read_only=True
+    )
+
+    class Meta:
+        model = Review
+        fields = ('id', 'text', 'author', 'score', 'pub_date')
+
+    def validate(self, data):
+        request = self.context['request']
+        if request.method == 'POST':
+            title_id = self.context.get('view').kwargs.get('title_id')
+            if Review.objects.filter(
+                    title_id=title_id,
+                    author=request.user
+            ).exists():
+                raise serializers.ValidationError(
+                    'Можно оставить только один отзыв на произведение'
+                )
+        return data
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    """Сериализатор комментарий."""
+    author = serializers.SlugRelatedField(
+        slug_field='username',
+        read_only=True
+    )
+
+    class Meta:
+        model = Comment
+        fields = ('id', 'text', 'author', 'pub_date')
