@@ -158,10 +158,18 @@ class Title(models.Model):
         null=True,
         verbose_name='Описание'
     )
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='titles',
+        verbose_name='Категория'
+    )
     genre = models.ManyToManyField(
         Genre,
         through='GenreTitle',
-        related_name='titles',
+        related_name='titles_set',
         verbose_name='Жанр'
     )
 
@@ -174,8 +182,16 @@ class Title(models.Model):
 
 
 class GenreTitle(models.Model):
-    genre = models.ForeignKey(Genre, on_delete=models.CASCADE)
-    title = models.ForeignKey(Title, on_delete=models.CASCADE)
+    genre = models.ForeignKey(
+        Genre,
+        on_delete=models.CASCADE,
+        related_name='titles'
+        )
+    title = models.ForeignKey(
+        Title,
+        on_delete=models.CASCADE,
+        related_name='genres'
+        )
 
     def __str__(self):
         return f'{self.genre} {self.title}'
