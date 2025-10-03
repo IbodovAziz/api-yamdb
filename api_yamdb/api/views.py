@@ -54,16 +54,14 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 100
 
 
-class CategoryViewSet(
+class CategoryGenreViewSet(
     mixins.CreateModelMixin,
     mixins.ListModelMixin,
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet
 ):
-    """Вьюсет для работы с категориями."""
+    """Вьюсет для моделей с полями name и slug."""
 
-    queryset = Category.objects.all()
-    serializer_class = CategorySerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = (IsAdminOrReadOnly,)
     filter_backends = (filters.SearchFilter,)
@@ -71,12 +69,14 @@ class CategoryViewSet(
     lookup_field = 'slug'
 
 
-class GenreViewSet(
-    mixins.CreateModelMixin,
-    mixins.ListModelMixin,
-    mixins.DestroyModelMixin,
-    viewsets.GenericViewSet
-):
+class CategoryViewSet(CategoryGenreViewSet):
+    """Вьюсет для работы с категориями."""
+
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+
+class GenreViewSet(CategoryGenreViewSet):
     """Вьюсет для работы с жанрами."""
 
     queryset = Genre.objects.all()
