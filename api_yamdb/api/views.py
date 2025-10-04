@@ -10,13 +10,12 @@ from rest_framework.permissions import (
 )
 from rest_framework.response import Response
 
-from reviews.models import Category, Genre, Title, Review
+from reviews.models import Category, Genre, Review, Title
 from .filters import TitleFilter
 from .permissions import (
     IsAdmin,
     IsAdminOrReadOnly,
-    IsAuthorOrReadOnly,
-    IsModerator
+    IsAuthorOrReadOnly
 )
 from .serializers import (
     ReviewSerializer,
@@ -34,8 +33,15 @@ from .serializers import (
 User = get_user_model()
 
 
+class NoPutModelViewSet(viewsets.ModelViewSet):
+    """Базовый вьюсет, реализующий все методы для модели, без PUT."""
+
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
+
+
 class AuthViewSet(viewsets.ViewSet):
     """Вьюсет для аутентификации."""
+
     permission_classes = [AllowAny]
 
     @action(detail=False, methods=['post'], url_path='signup')
@@ -92,14 +98,9 @@ class GenreViewSet(CategoryGenreViewSet):
 
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
-    pagination_class = StandardResultsSetPagination
-    permission_classes = (IsAdminOrReadOnly,)
-    filter_backends = (filters.SearchFilter,)
-    search_fields = ('name',)
-    lookup_field = 'slug'
 
 
-class TitleViewSet(viewsets.ModelViewSet):
+class TitleViewSet(NoPutModelViewSet):
     """Вьюсет для работы с произведениями."""
 
     queryset = Title.objects.all()
@@ -114,7 +115,7 @@ class TitleViewSet(viewsets.ModelViewSet):
         return TitleReadSerializer
 
 
-class UserViewSet(viewsets.ModelViewSet):
+class UserViewSet(NoPutModelViewSet):
     """Вьюсет для работы с пользователями."""
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -122,7 +123,6 @@ class UserViewSet(viewsets.ModelViewSet):
     filter_backends = (filters.SearchFilter,)
     search_fields = ('username',)
     lookup_field = 'username'
-    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     @action(
         detail=False,
@@ -147,9 +147,9 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(request.user).data)
 
 
-class ReviewViewSet(viewsets.ModelViewSet):
+class ReviewViewSet(NoPutModelViewSet):
     serializer_class = ReviewSerializer
-    permission_classes = [IsAuthorOrReadOnly, IsModerator]
+    permission_classes = (IsAuthorOrReadOnly,)
 
     def get_queryset(self):
         title = get_object_or_404(Title, pk=self.kwargs.get('title_id'))
@@ -160,9 +160,9 @@ class ReviewViewSet(viewsets.ModelViewSet):
         serializer.save(author=self.request.user, title=title)
 
 
-class CommentViewSet(viewsets.ModelViewSet):
+class CommentViewSet(NoPutModelViewSet):
     serializer_class = CommentSerializer
-    permission_classes = [IsAuthorOrReadOnly, IsModerator]
+    permission_classes = (IsAuthorOrReadOnly,)
 
     def get_queryset(self):
         review = get_object_or_404(

@@ -21,6 +21,10 @@ from reviews.models import (
 )
 
 
+MIN_YEAR = settings.MIN_YEAR
+MAX_YEAR = timezone.now().year
+
+
 class BaseUserSerializer(serializers.ModelSerializer):
     def validate_username(self, value):
         if value and value.lower() == 'me':
@@ -31,7 +35,7 @@ class BaseUserSerializer(serializers.ModelSerializer):
 
 class SignUpSerializer(BaseUserSerializer):
     username = serializers.CharField(
-        max_length=150,
+        max_length=settings.MAX_USERNAME_LENGTH,
         validators=[UserNameValidator]
     )
 
@@ -100,7 +104,7 @@ class SignUpSerializer(BaseUserSerializer):
 
 
 class TokenObtainSerializer(serializers.Serializer):
-    username = serializers.CharField(max_length=150)
+    username = serializers.CharField(max_length=settings.MAX_USERNAME_LENGTH)
     confirmation_code = serializers.CharField()
 
     def validate(self, data):
@@ -159,10 +163,6 @@ class UserSerializer(BaseUserSerializer):
         return data
 
 
-MIN_YEAR = -3000
-MAX_YEAR = timezone.now().year
-
-
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
@@ -183,7 +183,7 @@ class TitleReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Title
         fields = (
-            'id', 'name', 'year',
+            'id', 'name', 'year', 'rating',
             'description', 'genre', 'category'
         )
 
@@ -206,7 +206,7 @@ class TitleWriteSerializer(serializers.ModelSerializer):
     def validate_year(self, value):
         if value < MIN_YEAR:
             raise serializers.ValidationError(
-                f'Год не может быть меньше {MIN_YEAR} до н.э.'
+                f'Год не может быть меньше {MIN_YEAR}.'
             )
         if value > MAX_YEAR:
             raise serializers.ValidationError(
