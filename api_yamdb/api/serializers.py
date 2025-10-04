@@ -1,4 +1,5 @@
 import random
+import re
 import string
 
 from django.conf import settings
@@ -19,6 +20,9 @@ from reviews.models import (
     Review,
     Comment
 )
+
+
+MIN_YEAR = 0
 
 
 class BaseUserSerializer(serializers.ModelSerializer):
@@ -159,23 +163,38 @@ class UserSerializer(BaseUserSerializer):
         return data
 
 
-MIN_YEAR = -3000
-MAX_YEAR = timezone.now().year
+class SlugValidatorMixin:
+    """Миксин для валидации slug полей"""
+
+    def validate_slug(self, value):
+        if len(value) > 50:
+            raise serializers.ValidationError(
+                "Slug не может быть длиннее 50 символов."
+            )
+        if not re.match(r'^[-a-zA-Z0-9_]+$', value):
+            raise serializers.ValidationError(
+                "Slug может содержать только латинские буквы, "
+                "цифры, дефис и подчеркивание."
+            )
+        return value
 
 
-class CategorySerializer(serializers.ModelSerializer):
+class CategorySerializer(SlugValidatorMixin, serializers.ModelSerializer):
+    """Сериализатор категорий."""
     class Meta:
         model = Category
         fields = ('name', 'slug')
 
 
-class GenreSerializer(serializers.ModelSerializer):
+class GenreSerializer(SlugValidatorMixin, serializers.ModelSerializer):
+    """Сериализатор жанров."""
     class Meta:
         model = Genre
         fields = ('name', 'slug')
 
 
 class TitleReadSerializer(serializers.ModelSerializer):
+    """Сериализатор для чтения данных произведений."""
     genre = GenreSerializer(many=True, read_only=True)
     category = CategorySerializer(read_only=True)
     rating = serializers.IntegerField(read_only=True)
@@ -189,6 +208,7 @@ class TitleReadSerializer(serializers.ModelSerializer):
 
 
 class TitleWriteSerializer(serializers.ModelSerializer):
+    """Сериализатор для создания и обновления произведений."""
     genre = serializers.SlugRelatedField(
         slug_field='slug',
         queryset=Genre.objects.all(),
@@ -204,13 +224,14 @@ class TitleWriteSerializer(serializers.ModelSerializer):
         fields = ('name', 'year', 'description', 'genre', 'category')
 
     def validate_year(self, value):
+        current_year = timezone.now().year
         if value < MIN_YEAR:
             raise serializers.ValidationError(
-                f'Год не может быть меньше {MIN_YEAR} до н.э.'
+                'Год не может быть отрицательным числом.'
             )
-        if value > MAX_YEAR:
+        if value > current_year:
             raise serializers.ValidationError(
-                f'Год выпуска не должен превышать {MAX_YEAR}.'
+                f'Год выпуска не должен превышать {current_year}.'
             )
         return value
 
@@ -244,7 +265,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    """Сериализатор комментарий."""
+    """Сериализатор комментариев."""
     author = serializers.SlugRelatedField(
         slug_field='username',
         read_only=True
