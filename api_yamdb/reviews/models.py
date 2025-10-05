@@ -1,11 +1,12 @@
 from django.contrib.auth.models import AbstractUser
-from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
+from django.core.validators import (
+    MaxValueValidator,
+    MinValueValidator,
+    RegexValidator
+)
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
-
-
-CONFIRMATION_TTL = 300
 
 UserNameValidator = RegexValidator(
     regex=r'^[\w.@+-]+\Z',
@@ -13,38 +14,46 @@ UserNameValidator = RegexValidator(
 )
 
 
+SlugValidator = RegexValidator(
+    regex=r'^[-a-zA-Z0-9_]+$',
+    message="Slug может содержать только латинские буквы,"
+    " цифры, дефис и подчеркивание."
+)
+
+
 class User(AbstractUser):
     """
     Модель пользователя с расширенными полями.
-    Наследуется от AbstractUser для сохранения стандартной функциональности Django.
+
+    Наследуется от AbstractUser для сохранения стандартной функциональности.
     """
 
     username = models.CharField(
-        max_length=150,
+        max_length=settings.MAX_USERNAME_LENGTH,
         unique=True,
         validators=[UserNameValidator],
         verbose_name='Имя пользователя',
-        help_text='Обязательное поле. Не более 150 символов. Только буквы, цифры и @/./+/-/_.',
+        help_text='Обязательное поле. Не более 150 символов.'
+        ' Только буквы, цифры и @/./+/-/_.',
         error_messages={
             'unique': 'Пользователь с таким именем уже существует.',
         },
     )
 
     email = models.EmailField(
-        max_length=254,
         blank=True,
         verbose_name='Email адрес',
         help_text='Не более 254 символов.'
     )
 
     first_name = models.CharField(
-        max_length=150,
+        max_length=settings.MAX_USERNAME_LENGTH,
         blank=True,
         verbose_name='Имя'
     )
 
     last_name = models.CharField(
-        max_length=150,
+        max_length=settings.MAX_USERNAME_LENGTH,
         blank=True,
         verbose_name='Фамилия'
     )
@@ -60,7 +69,7 @@ class User(AbstractUser):
         ADMIN = 'admin', 'Администратор'
 
     role = models.CharField(
-        max_length=9,
+        max_length=settings.MAX_ROLE_LENGTH,
         choices=Role.choices,
         default=Role.USER,
         verbose_name='Роль'
@@ -90,18 +99,27 @@ class User(AbstractUser):
 
 
 class ConfirmationCode(models.Model):
-    email = models.EmailField(unique=True, max_length=254)
-    code = models.CharField(max_length=100)
+    email = models.EmailField(unique=True)
+    code = models.CharField(max_length=settings.CONFIRMATION_CODE_LENGTH)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def is_valid(self):
-        return (timezone.now() - self.created_at).total_seconds() < CONFIRMATION_TTL
+        code_lifetime = (timezone.now() - self.created_at).total_seconds()
+        return code_lifetime < settings.CONFIRMATION_TTL
 
 
 class Category(models.Model):
-    """Модель категорий произведений"""
-    name = models.CharField('Название категории', max_length=256)
-    slug = models.SlugField('Слаг категории', unique=True, max_length=50)
+    """Модель категорий произведений."""
+
+    name = models.CharField(
+        'Название категории',
+        max_length=settings.MAX_NAME_LENGTH
+    )
+    slug = models.SlugField(
+        'Слаг категории', unique=True,
+        max_length=settings.MAX_SLUG_LENGTH,
+        validators=(SlugValidator,)
+    )
 
     class Meta:
         verbose_name = 'Категория'
@@ -112,9 +130,15 @@ class Category(models.Model):
 
 
 class Genre(models.Model):
-    """Модель жанров произведений"""
-    name = models.CharField('Название жанра', max_length=256)
-    slug = models.SlugField('Слаг жанра', unique=True, max_length=50)
+    """Модель жанров произведений."""
+
+    name = models.CharField(
+        'Название жанра', max_length=settings.MAX_NAME_LENGTH)
+    slug = models.SlugField(
+        'Слаг жанра', unique=True,
+        max_length=settings.MAX_SLUG_LENGTH,
+        validators=(SlugValidator,)
+    )
 
     class Meta:
         verbose_name = 'Жанр'
@@ -126,13 +150,15 @@ class Genre(models.Model):
 
 class Title(models.Model):
     """Модель произведений."""
-    name = models.CharField('Название произведения', max_length=256)
+
+    name = models.CharField('Название произведения',
+                            max_length=settings.MAX_NAME_LENGTH)
     description = models.TextField('Описание', blank=True)
     year = models.IntegerField(
         verbose_name='Год выпуска',
         validators=[
             MinValueValidator(
-                0,
+                settings.MIN_YEAR,
                 message='Год не может быть отрицательным'
             ),
             MaxValueValidator(
@@ -170,19 +196,20 @@ class GenreTitle(models.Model):
         Genre,
         on_delete=models.CASCADE,
         related_name='titles'
-        )
+    )
     title = models.ForeignKey(
         Title,
         on_delete=models.CASCADE,
         related_name='genres'
-        )
+    )
 
     def __str__(self):
         return f'{self.genre} {self.title}'
 
 
 class Review(models.Model):
-    """Модель отзывов на произведения"""
+    """Модель отзывов на произведения."""
+
     title = models.ForeignKey(
         Title,
         verbose_name='Произведение',
@@ -191,14 +218,15 @@ class Review(models.Model):
     )
     text = models.TextField('Текст')
     author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        User,
         verbose_name='Автор',
         on_delete=models.CASCADE,
         related_name='reviews'
     )
     score = models.PositiveSmallIntegerField(
         verbose_name='Оценка',
-        validators=[MinValueValidator(1), MaxValueValidator(10)]
+        validators=[MinValueValidator(
+            settings.MIN_SCORE_VALUE), MaxValueValidator(settings.MAX_SCORE_VALUE)]
     )
     pub_date = models.DateTimeField(
         verbose_name='Дата публикации',
@@ -222,7 +250,8 @@ class Review(models.Model):
 
 
 class Comment(models.Model):
-    """Модель комментариев к отзывам"""
+    """Модель комментариев к отзывам."""
+
     review = models.ForeignKey(
         Review,
         on_delete=models.CASCADE,
