@@ -11,6 +11,13 @@ UserNameValidator = RegexValidator(
 )
 
 
+SlugValidator = RegexValidator(
+    regex=r'^[-a-zA-Z0-9_]+$',
+    message="Slug может содержать только латинские буквы,"
+    " цифры, дефис и подчеркивание."
+)
+
+
 class User(AbstractUser):
     """
     Модель пользователя с расширенными полями.
@@ -97,10 +104,15 @@ class ConfirmationCode(models.Model):
 
 class Category(models.Model):
     """Модель категорий произведений"""
-    name = models.CharField('Название категории',
-                            max_length=settings.MAX_NAME_LENGTH)
-    slug = models.SlugField('Слаг категории', unique=True,
-                            max_length=settings.MAX_SLUG_LENGTH)
+    name = models.CharField(
+        'Название категории',
+        max_length=settings.MAX_NAME_LENGTH
+    )
+    slug = models.SlugField(
+        'Слаг категории', unique=True,
+        max_length=settings.MAX_SLUG_LENGTH,
+        validators=(SlugValidator,)
+    )
 
     class Meta:
         verbose_name = 'Категория'
@@ -114,8 +126,11 @@ class Genre(models.Model):
     """Модель жанров произведений"""
     name = models.CharField(
         'Название жанра', max_length=settings.MAX_NAME_LENGTH)
-    slug = models.SlugField('Слаг жанра', unique=True,
-                            max_length=settings.MAX_SLUG_LENGTH)
+    slug = models.SlugField(
+        'Слаг жанра', unique=True,
+        max_length=settings.MAX_SLUG_LENGTH,
+        validators=(SlugValidator,)
+    )
 
     class Meta:
         verbose_name = 'Жанр'

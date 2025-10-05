@@ -9,6 +9,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework.exceptions import NotFound
 
+
 from reviews.models import (
     Category,
     ConfirmationCode,
@@ -22,7 +23,6 @@ from reviews.models import (
 
 
 MIN_YEAR = settings.MIN_YEAR
-MAX_YEAR = timezone.now().year
 
 
 class BaseUserSerializer(serializers.ModelSerializer):
@@ -130,6 +130,7 @@ class TokenObtainSerializer(serializers.Serializer):
 
 
 class UserSerializer(BaseUserSerializer):
+    """Сериализатор для пользователей"""
     class Meta:
         model = User
         fields = (
@@ -164,18 +165,23 @@ class UserSerializer(BaseUserSerializer):
 
 
 class CategorySerializer(serializers.ModelSerializer):
+    """Сериализатор для категорий произведений"""
+
     class Meta:
         model = Category
         fields = ('name', 'slug')
 
 
 class GenreSerializer(serializers.ModelSerializer):
+    """Сериализатор для жанров произведений"""
+
     class Meta:
         model = Genre
         fields = ('name', 'slug')
 
 
 class TitleReadSerializer(serializers.ModelSerializer):
+    """Сериализатор для чтения данных произведений."""
     genre = GenreSerializer(many=True, read_only=True)
     category = CategorySerializer(read_only=True)
     rating = serializers.IntegerField(read_only=True)
@@ -189,6 +195,7 @@ class TitleReadSerializer(serializers.ModelSerializer):
 
 
 class TitleWriteSerializer(serializers.ModelSerializer):
+    """Сериализатор для создания и обновления произведений."""
     genre = serializers.SlugRelatedField(
         slug_field='slug',
         queryset=Genre.objects.all(),
@@ -204,13 +211,14 @@ class TitleWriteSerializer(serializers.ModelSerializer):
         fields = ('name', 'year', 'description', 'genre', 'category')
 
     def validate_year(self, value):
+        current_year = timezone.now().year
         if value < MIN_YEAR:
             raise serializers.ValidationError(
-                f'Год не может быть меньше {MIN_YEAR}.'
+                'Год не может быть отрицательным числом.'
             )
-        if value > MAX_YEAR:
+        if value > current_year:
             raise serializers.ValidationError(
-                f'Год выпуска не должен превышать {MAX_YEAR}.'
+                f'Год выпуска не должен превышать {current_year}.'
             )
         return value
 
@@ -244,7 +252,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    """Сериализатор комментарий."""
+    """Сериализатор комментариев."""
     author = serializers.SlugRelatedField(
         slug_field='username',
         read_only=True
