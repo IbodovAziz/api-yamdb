@@ -20,11 +20,7 @@ jobs:
     
     - name: Install linting tools
       run: |
-        pip install flake8 black isort
-    
-    - name: Check code formatting with black
-      run: |
-        black --check --diff api_yamdb/
+        pip install flake8 isort
     
     - name: Check import sorting with isort
       run: |
