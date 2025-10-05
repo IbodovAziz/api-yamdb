@@ -1,7 +1,15 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import AuthViewSet, CategoryViewSet, GenreViewSet, TitleViewSet, UserViewSet, ReviewViewSet, CommentViewSet
+from .views import (
+    AuthViewSet,
+    CategoryViewSet,
+    GenreViewSet,
+    TitleViewSet,
+    UserViewSet,
+    ReviewViewSet,
+    CommentViewSet
+)
 
 router_v1 = DefaultRouter()
 router_v1.register('auth', AuthViewSet, basename='auth')
@@ -22,9 +30,15 @@ comment_detail = CommentViewSet.as_view({
 
 nested_urls = [
     path('titles/<int:title_id>/reviews/', review_list, name='review-list'),
-    path('titles/<int:title_id>/reviews/<int:pk>/', review_detail, name='review-detail'),
-    path('titles/<int:title_id>/reviews/<int:review_id>/comments/', comment_list, name='comment-list'),
-    path('titles/<int:title_id>/reviews/<int:review_id>/comments/<int:pk>/', comment_detail, name='comment-detail'),
+    path('titles/<int:title_id>/reviews/<int:pk>/',
+         review_detail, name='review-detail'),
+    path('titles/<int:title_id>/reviews/<int:review_id>/comments/',
+         comment_list, name='comment-list'),
+    path(
+        'titles/<int:title_id>/reviews/<int:review_id>/comments/<int:pk>/',
+        comment_detail,
+        name='comment-detail'
+    ),
 ]
 
 urlpatterns = [

@@ -1,5 +1,9 @@
 from django.contrib.auth.models import AbstractUser
-from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
+from django.core.validators import (
+    MaxValueValidator,
+    MinValueValidator,
+    RegexValidator
+)
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -21,7 +25,8 @@ SlugValidator = RegexValidator(
 class User(AbstractUser):
     """
     Модель пользователя с расширенными полями.
-    Наследуется от AbstractUser для сохранения стандартной функциональности Django.
+
+    Наследуется от AbstractUser для сохранения стандартной функциональности.
     """
 
     username = models.CharField(
@@ -29,7 +34,8 @@ class User(AbstractUser):
         unique=True,
         validators=[UserNameValidator],
         verbose_name='Имя пользователя',
-        help_text='Обязательное поле. Не более 150 символов. Только буквы, цифры и @/./+/-/_.',
+        help_text='Обязательное поле. Не более 150 символов.'
+        ' Только буквы, цифры и @/./+/-/_.',
         error_messages={
             'unique': 'Пользователь с таким именем уже существует.',
         },
@@ -99,11 +105,13 @@ class ConfirmationCode(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def is_valid(self):
-        return (timezone.now() - self.created_at).total_seconds() < settings.CONFIRMATION_TTL
+        code_lifetime = (timezone.now() - self.created_at).total_seconds()
+        return code_lifetime < settings.CONFIRMATION_TTL
 
 
 class Category(models.Model):
-    """Модель категорий произведений"""
+    """Модель категорий произведений."""
+
     name = models.CharField(
         'Название категории',
         max_length=settings.MAX_NAME_LENGTH
@@ -123,7 +131,8 @@ class Category(models.Model):
 
 
 class Genre(models.Model):
-    """Модель жанров произведений"""
+    """Модель жанров произведений."""
+
     name = models.CharField(
         'Название жанра', max_length=settings.MAX_NAME_LENGTH)
     slug = models.SlugField(
@@ -142,6 +151,7 @@ class Genre(models.Model):
 
 class Title(models.Model):
     """Модель произведений."""
+
     name = models.CharField('Название произведения',
                             max_length=settings.MAX_NAME_LENGTH)
     description = models.TextField('Описание', blank=True)
@@ -199,7 +209,8 @@ class GenreTitle(models.Model):
 
 
 class Review(models.Model):
-    """Модель отзывов на произведения"""
+    """Модель отзывов на произведения."""
+
     title = models.ForeignKey(
         Title,
         verbose_name='Произведение',
@@ -240,7 +251,8 @@ class Review(models.Model):
 
 
 class Comment(models.Model):
-    """Модель комментариев к отзывам"""
+    """Модель комментариев к отзывам."""
+
     review = models.ForeignKey(
         Review,
         on_delete=models.CASCADE,

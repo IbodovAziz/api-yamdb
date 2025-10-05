@@ -117,6 +117,7 @@ class TitleViewSet(NoPutModelViewSet):
 
 class UserViewSet(NoPutModelViewSet):
     """Вьюсет для работы с пользователями."""
+
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = (IsAdmin,)
