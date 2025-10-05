@@ -1,5 +1,4 @@
 import random
-import re
 import string
 
 from django.conf import settings
@@ -8,7 +7,9 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework.validators import RegexValidator
 from rest_framework.exceptions import NotFound
+
 
 from reviews.models import (
     Category,
@@ -163,31 +164,38 @@ class UserSerializer(BaseUserSerializer):
         return data
 
 
-class SlugValidatorMixin:
-    """Миксин для валидации slug полей"""
-
-    def validate_slug(self, value):
-        if len(value) > 50:
-            raise serializers.ValidationError(
-                "Slug не может быть длиннее 50 символов."
-            )
-        if not re.match(r'^[-a-zA-Z0-9_]+$', value):
-            raise serializers.ValidationError(
-                "Slug может содержать только латинские буквы, "
-                "цифры, дефис и подчеркивание."
-            )
-        return value
+slug_validators = [
+    RegexValidator(
+        regex=r'^[-a-zA-Z0-9_]+$',
+        message="Slug может содержать только латинские буквы,"
+        " цифры, дефис и подчеркивание."
+    ),
+]
 
 
-class CategorySerializer(SlugValidatorMixin, serializers.ModelSerializer):
-    """Сериализатор категорий."""
+class CategorySerializer(serializers.ModelSerializer):
+    slug = serializers.SlugField(
+        min_length=1,
+        max_length=50,
+        validators=slug_validators,
+        help_text="Slug (максимум 50 символов): только латинские буквы,"
+        " цифры, дефис и подчеркивание"
+    )
+
     class Meta:
         model = Category
         fields = ('name', 'slug')
 
 
-class GenreSerializer(SlugValidatorMixin, serializers.ModelSerializer):
-    """Сериализатор жанров."""
+class GenreSerializer(serializers.ModelSerializer):
+    slug = serializers.SlugField(
+        min_length=1,
+        max_length=50,
+        validators=slug_validators,
+        help_text="Slug (максимум 50 символов): только латинские буквы,"
+        " цифры, дефис и подчеркивание"
+    )
+
     class Meta:
         model = Genre
         fields = ('name', 'slug')
