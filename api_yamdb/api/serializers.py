@@ -9,7 +9,6 @@ from rest_framework import serializers
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework.exceptions import NotFound
 
-
 from reviews.models import (
     Category,
     ConfirmationCode,
@@ -20,7 +19,6 @@ from reviews.models import (
     Review,
     Comment
 )
-
 
 MIN_YEAR = settings.MIN_YEAR
 

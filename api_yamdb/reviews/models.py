@@ -8,7 +8,6 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 
-
 UserNameValidator = RegexValidator(
     regex=r'^[\w.@+-]+\Z',
     message='username может содержать только буквы, цифры и символы @/./+/-/_'
