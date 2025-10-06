@@ -3,32 +3,27 @@ from rest_framework import permissions
 
 class IsAdmin(permissions.BasePermission):
     """Разрешает доступ только администраторам."""
+
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and (
-            request.user.is_admin or request.user.is_superuser
+        return (
+            request.user
+            and request.user.is_authenticated
+            and request.user.is_admin
         )
 
 
 class IsAdminOrReadOnly(permissions.BasePermission):
     """Публичное чтение, но запись только администраторам."""
+
     def has_permission(self, request, view):
         return (
             request.method in permissions.SAFE_METHODS
-            or request.user and request.user.is_authenticated and (
-                request.user.is_admin
-                or request.user.is_superuser
+            or (
+                request.user
+                and request.user.is_authenticated
+                and request.user.is_admin
             )
         )
-
-
-class IsModerator(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return (request.user and request.user.is_authenticated
-                and (
-                    request.user.is_moderator
-                    or request.user.is_admin
-                    or request.user.is_superuser
-                ))
 
 
 class IsAuthorOrReadOnly(permissions.BasePermission):
@@ -45,5 +40,4 @@ class IsAuthorOrReadOnly(permissions.BasePermission):
             obj.author == request.user
             or request.user.is_moderator
             or request.user.is_admin
-            or request.user.is_superuser
         )

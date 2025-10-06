@@ -20,6 +20,8 @@ from reviews.models import (
     Comment
 )
 
+MIN_YEAR = settings.MIN_YEAR
+
 
 class BaseUserSerializer(serializers.ModelSerializer):
     def validate_username(self, value):
@@ -31,7 +33,7 @@ class BaseUserSerializer(serializers.ModelSerializer):
 
 class SignUpSerializer(BaseUserSerializer):
     username = serializers.CharField(
-        max_length=150,
+        max_length=settings.MAX_USERNAME_LENGTH,
         validators=[UserNameValidator]
     )
 
@@ -100,7 +102,7 @@ class SignUpSerializer(BaseUserSerializer):
 
 
 class TokenObtainSerializer(serializers.Serializer):
-    username = serializers.CharField(max_length=150)
+    username = serializers.CharField(max_length=settings.MAX_USERNAME_LENGTH)
     confirmation_code = serializers.CharField()
 
     def validate(self, data):
@@ -126,6 +128,8 @@ class TokenObtainSerializer(serializers.Serializer):
 
 
 class UserSerializer(BaseUserSerializer):
+    """Сериализатор для пользователей."""
+
     class Meta:
         model = User
         fields = (
@@ -159,23 +163,25 @@ class UserSerializer(BaseUserSerializer):
         return data
 
 
-MIN_YEAR = -3000
-MAX_YEAR = timezone.now().year
-
-
 class CategorySerializer(serializers.ModelSerializer):
+    """Сериализатор для категорий произведений."""
+
     class Meta:
         model = Category
         fields = ('name', 'slug')
 
 
 class GenreSerializer(serializers.ModelSerializer):
+    """Сериализатор для жанров произведений."""
+
     class Meta:
         model = Genre
         fields = ('name', 'slug')
 
 
 class TitleReadSerializer(serializers.ModelSerializer):
+    """Сериализатор для чтения данных произведений."""
+
     genre = GenreSerializer(many=True, read_only=True)
     category = CategorySerializer(read_only=True)
     rating = serializers.IntegerField(read_only=True)
@@ -183,12 +189,14 @@ class TitleReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Title
         fields = (
-            'id', 'name', 'year',
+            'id', 'name', 'year', 'rating',
             'description', 'genre', 'category'
         )
 
 
 class TitleWriteSerializer(serializers.ModelSerializer):
+    """Сериализатор для создания и обновления произведений."""
+
     genre = serializers.SlugRelatedField(
         slug_field='slug',
         queryset=Genre.objects.all(),
@@ -204,13 +212,14 @@ class TitleWriteSerializer(serializers.ModelSerializer):
         fields = ('name', 'year', 'description', 'genre', 'category')
 
     def validate_year(self, value):
+        current_year = timezone.now().year
         if value < MIN_YEAR:
             raise serializers.ValidationError(
-                f'Год не может быть меньше {MIN_YEAR} до н.э.'
+                'Год не может быть отрицательным числом.'
             )
-        if value > MAX_YEAR:
+        if value > current_year:
             raise serializers.ValidationError(
-                f'Год выпуска не должен превышать {MAX_YEAR}.'
+                f'Год выпуска не должен превышать {current_year}.'
             )
         return value
 
@@ -220,6 +229,7 @@ class TitleWriteSerializer(serializers.ModelSerializer):
 
 class ReviewSerializer(serializers.ModelSerializer):
     """Сериализатор отзывов."""
+
     author = serializers.SlugRelatedField(
         slug_field='username',
         read_only=True
@@ -244,7 +254,8 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    """Сериализатор комментарий."""
+    """Сериализатор комментариев."""
+
     author = serializers.SlugRelatedField(
         slug_field='username',
         read_only=True
