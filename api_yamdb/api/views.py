@@ -1,3 +1,4 @@
+from django.db.models import Avg
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
@@ -10,7 +11,7 @@ from rest_framework.permissions import (
 )
 from rest_framework.response import Response
 
-from reviews.models import Category, Genre, Review, Title
+from reviews.models import Category, Genre, Title, Review
 from .filters import TitleFilter
 from .permissions import (
     IsAdmin,
@@ -107,6 +108,7 @@ class TitleViewSet(NoPutModelViewSet):
     permission_classes = (IsAdminOrReadOnly,)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilter
+    queryset = Title.objects.all().annotate(rating=Avg('reviews__score'))
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
