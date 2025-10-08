@@ -18,16 +18,6 @@ SlugValidator = RegexValidator(
 )
 
 
-class ConfirmationCode(models.Model):
-    email = models.EmailField(unique=True)
-    code = models.CharField(max_length=settings.CONFIRMATION_CODE_LENGTH)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def is_valid(self):
-        code_lifetime = (timezone.now() - self.created_at).total_seconds()
-        return code_lifetime < settings.CONFIRMATION_TTL
-
-
 class Category(models.Model):
     """Модель категорий произведений."""
 

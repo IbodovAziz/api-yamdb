@@ -1,8 +1,6 @@
-import random
-import string
-
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.db.models import Q
 from django.utils import timezone
@@ -12,7 +10,6 @@ from rest_framework.exceptions import NotFound
 
 from reviews.models import (
     Category,
-    ConfirmationCode,
     Genre,
     Title,
     Review,
@@ -69,15 +66,8 @@ class SignUpSerializer(BaseUserSerializer):
     def create(self, validated_data):
         email = validated_data['email']
         username = validated_data['username']
-        code = ''.join(random.choices(
-            string.digits, k=settings.CONFIRMATION_CODE_LENGTH))
 
-        ConfirmationCode.objects.update_or_create(
-            email=email,
-            defaults={'code': code, 'created_at': timezone.now()}
-        )
-
-        user, _ = User.objects.update_or_create(
+        user, created = User.objects.get_or_create(
             email=email,
             defaults={
                 'username': username,
@@ -85,12 +75,19 @@ class SignUpSerializer(BaseUserSerializer):
             }
         )
 
-        self._send_confirmation_email(email, code)
+        if not created:
+            user.username = username
+            user.is_active = False
+            user.save()
+
+        token = default_token_generator.make_token(user)
+
+        self._send_confirmation_email(email, token)
         return user
 
-    def _send_confirmation_email(self, email, code):
+    def _send_confirmation_email(self, email, token):
         subject = 'Код подтверждения для регистрации'
-        message = f'Ваш код подтверждения: {code}'
+        message = f'Ваш код подтверждения: {token}'
 
         try:
             send_mail(
@@ -114,13 +111,10 @@ class TokenObtainSerializer(serializers.Serializer):
 
         try:
             user = User.objects.get(username=username)
-            code_obj = ConfirmationCode.objects.get(email=user.email)
-        except (User.DoesNotExist, ConfirmationCode.DoesNotExist):
+        except User.DoesNotExist:
             raise NotFound({"detail": "Неверные данные"})
 
-        if not code_obj.is_valid():
-            raise serializers.ValidationError("Код подтверждения истек")
-        if code_obj.code != confirmation_code:
+        if not default_token_generator.check_token(user, confirmation_code):
             raise serializers.ValidationError("Неверный код подтверждения")
 
         user.is_active = True
