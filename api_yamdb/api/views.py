@@ -3,7 +3,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, status, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import (
     AllowAny,
@@ -39,30 +39,24 @@ class NoPutModelViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
 
-class AuthViewSet(viewsets.ViewSet):
-    """Вьюсет для аутентификации."""
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def signup(request):
+    serializer = SignUpSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    user = serializer.save()
+    return Response(
+        {'email': user.email, 'username': user.username},
+        status=status.HTTP_200_OK
+    )
 
-    permission_classes = [AllowAny]
 
-    @action(detail=False, methods=['post'], url_path='signup')
-    def signup(self, request):
-        serializer = SignUpSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        return Response(
-            {'email': user.email, 'username': user.username},
-            status=status.HTTP_200_OK
-        )
-
-    @action(detail=False, methods=['post'], url_path='token')
-    def token(self, request):
-        serializer = TokenObtainSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return Response(
-            {
-                'token': serializer.validated_data['access_token']
-            }
-        )
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def token(request):
+    serializer = TokenObtainSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    return Response({'token': serializer.validated_data['access_token']})
 
 
 class StandardResultsSetPagination(PageNumberPagination):
