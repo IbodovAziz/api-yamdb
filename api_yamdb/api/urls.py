@@ -12,10 +12,10 @@ router_v1.register('titles', views.TitleViewSet, basename='titles')
 router_v1.register('users', views.UserViewSet, basename='users')
 
 titles_router = NestedSimpleRouter(router_v1, r'titles', lookup='title')
-titles_router.register(r'reviews', ReviewViewSet, basename='title-reviews')
+titles_router.register(r'reviews', views.ReviewViewSet, basename='title-reviews')
 
 reviews_router = NestedSimpleRouter(titles_router, r'reviews', lookup='review')
-reviews_router.register(r'comments', CommentViewSet, basename='review-comments')
+reviews_router.register(r'comments', views.CommentViewSet, basename='review-comments')
 
 urlpatterns = [
     path('v1/auth/signup/', views.signup),
