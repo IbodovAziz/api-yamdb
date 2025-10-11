@@ -12,7 +12,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
-AUTH_USER_MODEL = 'reviews.User'
+AUTH_USER_MODEL = 'users.User'
 
 # Application definition
 
@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'reviews.apps.ReviewsConfig',
     'api.apps.ApiConfig',
+    'users.apps.UsersConfig',
     'django_filters',
 ]
 
@@ -137,6 +138,4 @@ MAX_SCORE_VALUE = 10
 MAX_ROLE_LENGTH = 9
 MAX_NAME_LENGTH = 256
 MAX_SLUG_LENGTH = 50
-CONFIRMATION_CODE_LENGTH = 6
-CONFIRMATION_TTL = 300
 MIN_YEAR = 0
