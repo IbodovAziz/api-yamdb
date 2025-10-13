@@ -158,7 +158,7 @@ class UserSerializer(BaseUserSerializer):
                 })
 
         request = self.context.get('request')
-        if 'role' in data and not request.user.is_admin:
+        if 'role' in data and request and not request.user.is_admin:
             raise serializers.ValidationError({
                 'role': 'Изменение роли доступно только администраторам'
             })
