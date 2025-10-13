@@ -113,7 +113,7 @@ class Command(BaseCommand):
         """Импорт произведений."""
         self.stdout.write('Импортируем произведения.')
         try:
-            with open('static/data/titles.csv', mode='r', encoding='utf-8'\
+            with open('static/data/titles.csv', mode='r', encoding='utf-8'
                       ) as file:
                 reader = csv.DictReader(file)
                 for row in reader:
