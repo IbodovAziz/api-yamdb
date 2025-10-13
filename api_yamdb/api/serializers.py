@@ -27,7 +27,7 @@ class BaseUserSerializer(serializers.ModelSerializer):
     def validate_username(self, value):
         if value and value.lower() == 'me':
             raise serializers.ValidationError(
-                "Имя 'me' запрещено в качестве username")
+                'Имя "me" запрещено в качестве username')
         return value
 
 
@@ -56,10 +56,10 @@ class SignUpSerializer(BaseUserSerializer):
         for user in users:
             if user.username == username and user.email != email:
                 raise serializers.ValidationError(
-                    {"username": "Введенный username занят"})
+                    {'username': 'Введенный username занят'})
             if user.email == email and user.username != username:
                 raise serializers.ValidationError(
-                    {"email": "Введенный email занят"})
+                    {'email': 'Введенный email занят'})
 
         return data
 
@@ -98,7 +98,7 @@ class SignUpSerializer(BaseUserSerializer):
                 fail_silently=False,
             )
         except Exception as e:
-            print(f"Ошибка отправки email: {e}")
+            print(f'Ошибка отправки email: {e}')
 
 
 class TokenObtainSerializer(serializers.Serializer):
@@ -112,10 +112,10 @@ class TokenObtainSerializer(serializers.Serializer):
         try:
             user = User.objects.get(username=username)
         except User.DoesNotExist:
-            raise NotFound({"detail": "Неверные данные"})
+            raise NotFound({'detail': 'Неверные данные'})
 
         if not default_token_generator.check_token(user, confirmation_code):
-            raise serializers.ValidationError("Неверный код подтверждения")
+            raise serializers.ValidationError('Неверный код подтверждения')
 
         user.is_active = True
         user.save()
@@ -149,12 +149,12 @@ class UserSerializer(BaseUserSerializer):
 
             if User.objects.filter(username=username).exists():
                 raise serializers.ValidationError({
-                    "username": "Пользователь с таким username уже существует"
+                    'username': 'Пользователь с таким username уже существует'
                 })
 
             if User.objects.filter(email=email).exists():
                 raise serializers.ValidationError({
-                    "email": "Пользователь с таким email уже существует"
+                    'email': 'Пользователь с таким email уже существует'
                 })
 
         return data
