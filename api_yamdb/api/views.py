@@ -130,16 +130,14 @@ class UserViewSet(NoPutModelViewSet):
             return Response(self.get_serializer(request.user).data)
 
         serializer = self.get_serializer(
-            request.user, data=request.data, partial=True
+            request.user,
+            data=request.data,
+            partial=True,
+            context={'request': request}
         )
         serializer.is_valid(raise_exception=True)
+        serializer.save()
 
-        allowed_fields = {'first_name', 'last_name', 'bio'}
-        for field in allowed_fields:
-            if field in serializer.validated_data:
-                setattr(request.user, field, serializer.validated_data[field])
-
-        request.user.save()
         return Response(self.get_serializer(request.user).data)
 
 
