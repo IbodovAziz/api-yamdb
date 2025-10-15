@@ -23,125 +23,122 @@ class Command(BaseCommand):
         self.import_reviews()
         self.import_comments()
 
-    @transaction.atomic
-    def import_users(self):
-        """Импорт пользователей."""
-        self.stdout.write('Импортируем пользователей.')
+    def import_model(self, filename, Model, process_row_callback=None,
+                     use_bulk_create=False):
+        """Общий метод для импорта моделей из CSV файлов."""
+        model_name = Model._meta.verbose_name_plural
+        self.stdout.write(f'Импортируем {model_name}.')
         try:
-            with open('static/data/users.csv', mode='r', encoding='utf-8'
-                      ) as file:
-                objects_to_create = []
+            with open(filename, mode='r', encoding='utf-8') as file:
                 reader = csv.DictReader(file)
-                for row in reader:
-                    user = User(
-                        id=row['id'],
-                        username=row['username'],
-                        email=row['email'],
-                        role=row['role'],
-                        bio=row['bio'],
-                        first_name=row['first_name'],
-                        last_name=row['last_name'],
-                    )
-                    user.set_password('temporary_password_123')
-                    objects_to_create.append(user)
-                User.objects.bulk_create(objects_to_create)
+                if use_bulk_create:
+                    objects_to_create = []
+                    for row in reader:
+                        if process_row_callback:
+                            obj = process_row_callback(row, Model)
+                        else:
+                            obj = Model(**row)
+                        objects_to_create.append(obj)
+                    Model.objects.bulk_create(objects_to_create)
+                else:
+                    for row in reader:
+                        try:
+                            if process_row_callback:
+                                obj = process_row_callback(row, Model)
+                            else:
+                                obj, _ = Model.objects.get_or_create(**row)
+                        except IntegrityError as e:
+                            self.stdout.write(
+                                f'Не удалось добавить {model_name[:-1]}: {e}')
                 self.stdout.write(self.style.SUCCESS(
-                    'Пользователи импортированы.'))
+                    f'{model_name.capitalize()} успешно импортированы.'))
         except FileNotFoundError:
             self.stdout.write(self.style.ERROR(
-                'Файл static/data/users.csv не найден.'))
+                f'Файл {filename} не найден.'))
         except Exception as e:
             self.stdout.write(self.style.ERROR(
-                f'Ошибка при импорте пользователей: {e}.'))
+                f'Ошибка при импорте {model_name}: {e}.'))
+
+    @transaction.atomic
+    def import_users(self):
+        """Импорт пользователей с обработкой пароля."""
+        def process_user_row(row, Model):
+            user = User(
+                id=row['id'],
+                username=row['username'],
+                email=row['email'],
+                role=row['role'],
+                bio=row['bio'],
+                first_name=row['first_name'],
+                last_name=row['last_name'],
+            )
+            user.set_password('temporary_password_123')
+            return user
+
+        self.import_model(
+            'static/data/users.csv',
+            User,
+            process_row_callback=process_user_row,
+            use_bulk_create=True
+        )
 
     @transaction.atomic
     def import_categories(self):
         """Импорт категорий."""
-        self.stdout.write('Импортируем категории.')
-        try:
-            with open('static/data/category.csv', mode='r', encoding='utf-8'
-                      ) as file:
-                reader = csv.DictReader(file)
-                for row in reader:
-                    try:
-                        Category.objects.get_or_create(
-                            id=row['id'],
-                            name=row['name'],
-                            slug=row['slug']
-                        )
-                    except IntegrityError as e:
-                        self.stdout.write(
-                            f'Не удалось добавить категорию: {e}')
-            self.stdout.write(self.style.SUCCESS(
-                'Категории успешно импортированы'))
-        except FileNotFoundError:
-            self.stdout.write(self.style.ERROR
-                              ('Файл static/data/category.csv не найден'))
-        except Exception as e:
-            self.stdout.write(self.style.ERROR
-                              (f'Ошибка при импорте категорий: {e}'))
+        def process_category_row(row, Model):
+            return Category.objects.get_or_create(
+                id=row['id'],
+                name=row['name'],
+                slug=row['slug']
+            )
+
+        self.import_model(
+            'static/data/category.csv',
+            Category,
+            process_row_callback=process_category_row
+        )
 
     @transaction.atomic
     def import_genres(self):
         """Импорт жанров."""
-        self.stdout.write('Импортируем жанры.')
-        try:
-            with open('static/data/genre.csv', mode='r', encoding='utf-8'
-                      ) as file:
-                reader = csv.DictReader(file)
-                for row in reader:
-                    try:
-                        Genre.objects.get_or_create(
-                            id=row['id'],
-                            name=row['name'],
-                            slug=row['slug']
-                        )
-                    except IntegrityError as e:
-                        self.stdout.write(
-                            f'Не удалось добавить жанр: {e}')
-            self.stdout.write(self.style.SUCCESS(
-                'Жанры успешно импортированы'))
-        except FileNotFoundError:
-            self.stdout.write(self.style.ERROR(
-                'Файл static/data/genre.csv не найден'))
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(
-                f'Ошибка при импорте жанров: {e}'))
+        def process_genre_row(row, Model):
+            return Genre.objects.get_or_create(
+                id=row['id'],
+                name=row['name'],
+                slug=row['slug']
+            )
+
+        self.import_model(
+            'static/data/genre.csv',
+            Genre,
+            process_row_callback=process_genre_row
+        )
 
     @transaction.atomic
     def import_titles(self):
         """Импорт произведений."""
-        self.stdout.write('Импортируем произведения.')
-        try:
-            with open('static/data/titles.csv', mode='r', encoding='utf-8'
-                      ) as file:
-                reader = csv.DictReader(file)
-                for row in reader:
-                    try:
-                        category = Category.objects.get(id=row['category'])
-                        Title.objects.get_or_create(
-                            id=row['id'],
-                            defaults={
-                                'name': row['name'],
-                                'year': row['year'],
-                                'category': category
-                            }
-                        )
-                    except Category.DoesNotExist:
-                        self.stdout.write(self.style.ERROR(
-                            f'Категория с id {row["category"]} не найдена'
-                        ))
-                    except IntegrityError as e:
-                        self.stdout.write(
-                            f'Не удалось добавить произведение: {e}')
-            self.stdout.write(self.style.SUCCESS(
-                'Произведения успешно импортированы.'))
-        except FileNotFoundError:
-            self.stdout.write(self.style.ERROR(
-                'Файл static/data/titles.csv не найден.'))
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(
-                f'Ошибка при импорте произведений: {e}.'))
+        def process_title_row(row, Model):
+            try:
+                category = Category.objects.get(id=row['category'])
+                return Title.objects.get_or_create(
+                    id=row['id'],
+                    defaults={
+                        'name': row['name'],
+                        'year': row['year'],
+                        'category': category
+                    }
+                )
+            except Category.DoesNotExist:
+                self.stdout.write(self.style.ERROR(
+                    f'Категория с id {row["category"]} не найдена'
+                ))
+                return None, False
+
+        self.import_model(
+            'static/data/titles.csv',
+            Title,
+            process_row_callback=process_title_row
+        )
 
     @transaction.atomic
     def import_genre_titles(self):
@@ -176,81 +173,65 @@ class Command(BaseCommand):
     @transaction.atomic
     def import_reviews(self):
         """Импорт отзывов."""
-        self.stdout.write('Импортируем отзывы.')
-        try:
-            with open('static/data/review.csv', mode='r', encoding='utf-8'
-                      ) as file:
-                reader = csv.DictReader(file)
-                for row in reader:
-                    try:
-                        title = Title.objects.get(id=row['title_id'])
-                        author = User.objects.get(id=row['author'])
-                        Review.objects.get_or_create(
-                            id=row['id'],
-                            defaults={
-                                'title': title,
-                                'author': author,
-                                'text': row['text'],
-                                'pub_date': row['pub_date'],
-                                'score': row['score']
-                            }
-                        )
-                    except Title.DoesNotExist:
-                        self.stdout.write(self.style.ERROR(
-                            f'Произведение с ID {row["title_id"]} не найдено'
-                        ))
-                    except User.DoesNotExist:
-                        self.stdout.write(self.style.ERROR(
-                            f'Пользователь с ID {row["author"]} не найден'
-                        ))
-                    except IntegrityError as e:
-                        self.stdout.write(f'Не удалось добавить отзыв: {e}.')
-            self.stdout.write(self.style.SUCCESS(
-                'Отзывы успешно импортированы.'))
-        except FileNotFoundError:
-            self.stdout.write(self.style.ERROR(
-                'Файл static/data/review.csv не найден.'))
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(
-                f'Ошибка при импорте отзывов: {e}.'))
+        def process_review_row(row, Model):
+            try:
+                title = Title.objects.get(id=row['title_id'])
+                author = User.objects.get(id=row['author'])
+                return Review.objects.get_or_create(
+                    id=row['id'],
+                    defaults={
+                        'title': title,
+                        'author': author,
+                        'text': row['text'],
+                        'pub_date': row['pub_date'],
+                        'score': row['score']
+                    }
+                )
+            except Title.DoesNotExist:
+                self.stdout.write(self.style.ERROR(
+                    f'Произведение с ID {row["title_id"]} не найдено'
+                ))
+                return None, False
+            except User.DoesNotExist:
+                self.stdout.write(self.style.ERROR(
+                    f'Пользователь с ID {row["author"]} не найден'
+                ))
+                return None, False
+        self.import_model(
+            'static/data/review.csv',
+            Review,
+            process_row_callback=process_review_row
+        )
 
     @transaction.atomic
     def import_comments(self):
         """Импорт комментариев."""
-        self.stdout.write('Импортируем комментарии.')
-        try:
-            with open('static/data/comments.csv', mode='r', encoding='utf-8'
-                      ) as file:
-                reader = csv.DictReader(file)
-                for row in reader:
-                    try:
-                        review = Review.objects.get(id=row['review_id'])
-                        author = User.objects.get(id=row['author'])
-                        Comment.objects.get_or_create(
-                            id=row['id'],
-                            defaults={
-                                'review': review,
-                                'author': author,
-                                'text': row['text'],
-                                'pub_date': row['pub_date']
-                            }
-                        )
-                    except Review.DoesNotExist:
-                        self.stdout.write(self.style.ERROR(
-                            f'Отзыв с ID {row["review_id"]} не найден'
-                        ))
-                    except User.DoesNotExist:
-                        self.stdout.write(self.style.ERROR(
-                            f'Пользователь с ID {row["author"]} не найден'
-                        ))
-                    except IntegrityError as e:
-                        self.stdout.write(
-                            f'Не удалось добавить комментарий: {e}.')
-            self.stdout.write(self.style.SUCCESS(
-                'Комментарии успешно импортированы.'))
-        except FileNotFoundError:
-            self.stdout.write(self.style.ERROR(
-                'Файл static/data/comments.csv не найден.'))
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(
-                f'Ошибка при импорте комментариев: {e}.'))
+        def process_comment_row(row, Model):
+            try:
+                review = Review.objects.get(id=row['review_id'])
+                author = User.objects.get(id=row['author'])
+                return Comment.objects.get_or_create(
+                    id=row['id'],
+                    defaults={
+                        'review': review,
+                        'author': author,
+                        'text': row['text'],
+                        'pub_date': row['pub_date']
+                    }
+                )
+            except Review.DoesNotExist:
+                self.stdout.write(self.style.ERROR(
+                    f'Отзыв с ID {row["review_id"]} не найден'
+                ))
+                return None, False
+            except User.DoesNotExist:
+                self.stdout.write(self.style.ERROR(
+                    f'Пользователь с ID {row["author"]} не найден'
+                ))
+                return None, False
+
+        self.import_model(
+            'static/data/comments.csv',
+            Comment,
+            process_row_callback=process_comment_row
+        )
