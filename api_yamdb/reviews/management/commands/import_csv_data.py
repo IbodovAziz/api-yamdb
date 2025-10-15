@@ -32,24 +32,11 @@ class Command(BaseCommand):
             with open(filename, mode='r', encoding='utf-8') as file:
                 reader = csv.DictReader(file)
                 if use_bulk_create:
-                    objects_to_create = []
-                    for row in reader:
-                        if process_row_callback:
-                            obj = process_row_callback(row, Model)
-                        else:
-                            obj = Model(**row)
-                        objects_to_create.append(obj)
-                    Model.objects.bulk_create(objects_to_create)
+                    self._bulk_create_objects(
+                        reader, Model, process_row_callback)
                 else:
-                    for row in reader:
-                        try:
-                            if process_row_callback:
-                                obj = process_row_callback(row, Model)
-                            else:
-                                obj, _ = Model.objects.get_or_create(**row)
-                        except IntegrityError as e:
-                            self.stdout.write(
-                                f'Не удалось добавить {model_name[:-1]}: {e}')
+                    self._single_create_objects(
+                        reader, Model, process_row_callback, model_name)
                 self.stdout.write(self.style.SUCCESS(
                     f'{model_name.capitalize()} успешно импортированы.'))
         except FileNotFoundError:
@@ -58,6 +45,30 @@ class Command(BaseCommand):
         except Exception as e:
             self.stdout.write(self.style.ERROR(
                 f'Ошибка при импорте {model_name}: {e}.'))
+
+    def _bulk_create_objects(self, reader, Model, process_row_callback):
+        """Обрабатывает массовое создание объектов."""
+        objects_to_create = []
+        for row in reader:
+            if process_row_callback:
+                obj = process_row_callback(row, Model)
+            else:
+                obj = Model(**row)
+            objects_to_create.append(obj)
+        Model.objects.bulk_create(objects_to_create)
+
+    def _single_create_objects(self, reader, Model, process_row_callback,
+                               model_name):
+        """Обрабатывает построчное создание объектов."""
+        for row in reader:
+            try:
+                if process_row_callback:
+                    process_row_callback(row, Model)
+                else:
+                    Model.objects.get_or_create(**row)
+            except IntegrityError as e:
+                self.stdout.write(
+                    f'Не удалось добавить {model_name[:-1]}: {e}')
 
     @transaction.atomic
     def import_users(self):
