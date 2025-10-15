@@ -74,7 +74,6 @@ class Command(BaseCommand):
             )
             user.set_password('temporary_password_123')
             return user
-
         self.import_model(
             'static/data/users.csv',
             User,
@@ -91,7 +90,6 @@ class Command(BaseCommand):
                 name=row['name'],
                 slug=row['slug']
             )
-
         self.import_model(
             'static/data/category.csv',
             Category,
@@ -107,7 +105,6 @@ class Command(BaseCommand):
                 name=row['name'],
                 slug=row['slug']
             )
-
         self.import_model(
             'static/data/genre.csv',
             Genre,
@@ -133,7 +130,6 @@ class Command(BaseCommand):
                     f'Категория с id {row["category"]} не найдена'
                 ))
                 return None, False
-
         self.import_model(
             'static/data/titles.csv',
             Title,
@@ -229,7 +225,6 @@ class Command(BaseCommand):
                     f'Пользователь с ID {row["author"]} не найден'
                 ))
                 return None, False
-
         self.import_model(
             'static/data/comments.csv',
             Comment,
