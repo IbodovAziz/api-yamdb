@@ -23,20 +23,20 @@ class Command(BaseCommand):
         self.import_reviews()
         self.import_comments()
 
-    def import_model(self, filename, Model, process_row_callback=None,
+    def import_model(self, filename, model, process_row_callback=None,
                      use_bulk_create=False):
         """Общий метод для импорта моделей из CSV файлов."""
-        model_name = Model._meta.verbose_name_plural
+        model_name = model._meta.verbose_name_plural
         self.stdout.write(f'Импортируем {model_name}.')
         try:
             with open(filename, mode='r', encoding='utf-8') as file:
                 reader = csv.DictReader(file)
                 if use_bulk_create:
                     self._bulk_create_objects(
-                        reader, Model, process_row_callback)
+                        reader, model, process_row_callback)
                 else:
                     self._single_create_objects(
-                        reader, Model, process_row_callback, model_name)
+                        reader, model, process_row_callback, model_name)
                 self.stdout.write(self.style.SUCCESS(
                     f'{model_name.capitalize()} успешно импортированы.'))
         except FileNotFoundError:
@@ -46,35 +46,40 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(
                 f'Ошибка при импорте {model_name}: {e}.'))
 
-    def _bulk_create_objects(self, reader, Model, process_row_callback):
+    def _bulk_create_objects(self, reader, model, process_row_callback):
         """Обрабатывает массовое создание объектов."""
         objects_to_create = []
         for row in reader:
             if process_row_callback:
-                obj = process_row_callback(row, Model)
+                obj = process_row_callback(row, model)
             else:
-                obj = Model(**row)
-            objects_to_create.append(obj)
-        Model.objects.bulk_create(objects_to_create)
+                obj = model(**row)
+            if obj:
+                objects_to_create.append(obj)
+        if objects_to_create:
+            model.objects.bulk_create(objects_to_create)
 
-    def _single_create_objects(self, reader, Model, process_row_callback,
+    def _single_create_objects(self, reader, model, process_row_callback,
                                model_name):
         """Обрабатывает построчное создание объектов."""
         for row in reader:
             try:
                 if process_row_callback:
-                    process_row_callback(row, Model)
+                    process_row_callback(row, model)
                 else:
-                    Model.objects.get_or_create(**row)
+                    model.objects.get_or_create(**row)
             except IntegrityError as e:
                 self.stdout.write(
                     f'Не удалось добавить {model_name[:-1]}: {e}')
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(
+                    f'Ошибка при создании {model_name[:-1]}: {e}'))
 
     @transaction.atomic
     def import_users(self):
         """Импорт пользователей с обработкой пароля."""
-        def process_user_row(row, Model):
-            user = User(
+        def process_user_row(row, model):
+            user = model(
                 id=row['id'],
                 username=row['username'],
                 email=row['email'],
@@ -95,8 +100,8 @@ class Command(BaseCommand):
     @transaction.atomic
     def import_categories(self):
         """Импорт категорий."""
-        def process_category_row(row, Model):
-            return Category.objects.get_or_create(
+        def process_category_row(row, model):
+            return model.objects.get_or_create(
                 id=row['id'],
                 name=row['name'],
                 slug=row['slug']
@@ -110,8 +115,8 @@ class Command(BaseCommand):
     @transaction.atomic
     def import_genres(self):
         """Импорт жанров."""
-        def process_genre_row(row, Model):
-            return Genre.objects.get_or_create(
+        def process_genre_row(row, model):
+            return model.objects.get_or_create(
                 id=row['id'],
                 name=row['name'],
                 slug=row['slug']
@@ -125,10 +130,10 @@ class Command(BaseCommand):
     @transaction.atomic
     def import_titles(self):
         """Импорт произведений."""
-        def process_title_row(row, Model):
+        def process_title_row(row, model):
             try:
                 category = Category.objects.get(id=row['category'])
-                return Title.objects.get_or_create(
+                return model.objects.get_or_create(
                     id=row['id'],
                     defaults={
                         'name': row['name'],
@@ -180,11 +185,11 @@ class Command(BaseCommand):
     @transaction.atomic
     def import_reviews(self):
         """Импорт отзывов."""
-        def process_review_row(row, Model):
+        def process_review_row(row, model):
             try:
                 title = Title.objects.get(id=row['title_id'])
                 author = User.objects.get(id=row['author'])
-                return Review.objects.get_or_create(
+                return model.objects.get_or_create(
                     id=row['id'],
                     defaults={
                         'title': title,
@@ -213,11 +218,11 @@ class Command(BaseCommand):
     @transaction.atomic
     def import_comments(self):
         """Импорт комментариев."""
-        def process_comment_row(row, Model):
+        def process_comment_row(row, model):
             try:
                 review = Review.objects.get(id=row['review_id'])
                 author = User.objects.get(id=row['author'])
-                return Comment.objects.get_or_create(
+                return model.objects.get_or_create(
                     id=row['id'],
                     defaults={
                         'review': review,
